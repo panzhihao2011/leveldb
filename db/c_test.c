@@ -11,6 +11,21 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+#ifndef _UNICODE
+#define _UNICODE
+#define UNICODE
+#endif
+
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+#define SECURITY_WIN32
+#include <Security.h>
+
+#pragma comment(lib, "Secur32.lib")
+#endif
+
 const char* phase = "";
 static char dbname[200];
 
@@ -154,6 +169,36 @@ unsigned char FilterKeyMatch(
   return fake_filter_result;
 }
 
+#ifdef _WIN32
+int GetUserId(char* userId, int maxLen) {
+	const DWORD Len = 1024;
+	char userIdTmp[1025];
+	DWORD dwLen = Len;
+	if (GetUserNameExA(NameUniqueId, userIdTmp, &dwLen))
+	{
+		if (dwLen > 2) {
+			if (userIdTmp[0] == '{' && userIdTmp[dwLen - 1] == '}') {
+				if ((dwLen - 2) < maxLen) {
+					userIdTmp[dwLen - 2] = '\0';
+					memcpy(userId, (void*)&userIdTmp[1], dwLen - 2);
+					return dwLen - 2;
+				}
+			}
+		}
+		if (dwLen < maxLen) {
+			memcpy(userId, (void*)&userIdTmp[0], dwLen);
+			return dwLen;
+		}
+	}
+	return 0;
+}
+#else
+int GetUserId(char* userId, int maxLen) {
+	snprintf(userId, "%d", ((int)geteuid()));
+	return strlen(userId);
+}
+#endif
+
 int main(int argc, char** argv) {
   leveldb_t* db;
   leveldb_comparator_t* cmp;
@@ -168,10 +213,17 @@ int main(int argc, char** argv) {
   CheckCondition(leveldb_major_version() >= 1);
   CheckCondition(leveldb_minor_version() >= 1);
 
-  snprintf(dbname, sizeof(dbname),
-           "%s/leveldb_c_test-%d",
-           GetTempDir(),
-           ((int) geteuid()));
+  char userId[1025];
+  if (GetUserId(userId, 1024) > 0) {
+	snprintf(dbname, sizeof(dbname),
+		"%s/leveldb_c_test-%s",
+		GetTempDir(),
+		userId);
+  } else {
+	snprintf(dbname, sizeof(dbname),
+		"%s/leveldb_c_test",
+		GetTempDir());
+  }
 
   StartPhase("create_objects");
   cmp = leveldb_comparator_create(NULL, CmpDestroy, CmpCompare, CmpName);
