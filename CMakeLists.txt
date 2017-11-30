@@ -31,10 +31,12 @@ check_library_exists(snappy snappy_compress "" HAVE_SNAPPY)
 include(CheckSymbolExists)
 check_symbol_exists(fdatasync "unistd.h" HAVE_FDATASYNC)
 
+if (UNIX OR APPLE)
 #configure_file(
 #  "${PROJECT_SOURCE_DIR}/port/port_config.h.in"
 #  "${PROJECT_BINARY_DIR}/include/port/port_config.h"
-#)
+)
+endif()
 
 include_directories(
   "${PROJECT_BINARY_DIR}/include"
@@ -54,24 +56,44 @@ add_library(leveldb_port_win OBJECT "")
 target_sources(leveldb_port_win
   PRIVATE
     "${PROJECT_SOURCE_DIR}/port/port_win.cc"
-    #"${PROJECT_SOURCE_DIR}/port/port_posix_sse.cc" 
   PUBLIC
     # The headers below are dependencies for leveldb, but aren't needed by users
     # that link to the installed version of leveldb and rely on its public API.
-    #$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/port/port_config.h>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/atomic_pointer.h>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/port_win.h>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/port.h>
 )
-endif(WIN32)
 
 add_library(leveldb ""
   # TODO(pwnall): Move the TARGET_OBJECTS generator expressions to the PRIVATE
   # section of target_sources when cmake_minimum_required becomes 3.9 or above.
   $<TARGET_OBJECTS:leveldb_port_win>
 )
-target_sources(leveldb
+endif(WIN32)
+
+if (UNIX OR APPLE)
+# POSIX code is specified separately so we can leave it out in the future.
+add_library(leveldb_port_posix OBJECT "")
+target_sources(leveldb_port_posix
   PRIVATE
+    "${PROJECT_SOURCE_DIR}/port/port_posix.cc"
+    "${PROJECT_SOURCE_DIR}/port/port_posix_sse.cc" 
+  PUBLIC
+    # The headers below are dependencies for leveldb, but aren't needed by users
+    # that link to the installed version of leveldb and rely on its public API.
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/port/port_config.h>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/atomic_pointer.h>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/port_posix.h>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/port.h>
+)
+add_library(leveldb ""
+  # TODO(pwnall): Move the TARGET_OBJECTS generator expressions to the PRIVATE
+  # section of target_sources when cmake_minimum_required becomes 3.9 or above.
+  $<TARGET_OBJECTS:leveldb_port_posix>
+)
+endif()
+
+set (LEVELDB_SOURCES
     "${PROJECT_SOURCE_DIR}/db/builder.cc"
     "${PROJECT_SOURCE_DIR}/db/builder.h"
     "${PROJECT_SOURCE_DIR}/db/c.cc"
@@ -129,7 +151,6 @@ target_sources(leveldb
     "${PROJECT_SOURCE_DIR}/util/comparator.cc"
     "${PROJECT_SOURCE_DIR}/util/crc32c.cc"
     "${PROJECT_SOURCE_DIR}/util/crc32c.h"
-    "${PROJECT_SOURCE_DIR}/util/env_win.cc"
     "${PROJECT_SOURCE_DIR}/util/env.cc"
     "${PROJECT_SOURCE_DIR}/util/filter_policy.cc"
     "${PROJECT_SOURCE_DIR}/util/hash.cc"
@@ -158,6 +179,17 @@ target_sources(leveldb
     "include/leveldb/table_builder.h"
     "include/leveldb/table.h"
     "include/leveldb/write_batch.h"
+)
+
+if (WIN32)
+  set(LEVELDB_SOURCES ${LEVELDB_SOURCES} 
+    "${PROJECT_SOURCE_DIR}/util/env_win.cc"
+  )
+endif(WIN32)
+
+target_sources(leveldb
+  PRIVATE
+  ${LEVELDB_SOURCES}
 )
 
 target_include_directories(leveldb
