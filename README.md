@@ -4,6 +4,14 @@
 
 Authors: Sanjay Ghemawat (sanjay@google.com) and Jeff Dean (jeff@google.com)
 
+# Build instructions on Windows
+
+  * git clone git@github.com:vaskomitanov/leveldb.git
+  * mkdir leveldb-build
+  * cd leveldb-build
+  * cmake ..\leveldb -G "Visual Studio 15 2017 Win64"
+  * msbuild Leveldb.sln
+
 # Features
   * Keys and values are arbitrary byte arrays.
   * Data is stored sorted by key.
