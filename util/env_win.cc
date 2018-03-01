@@ -328,7 +328,7 @@ Status Win32SequentialFile::Read( size_t n, Slice* result, char* scratch )
 {
     Status sRet;
     DWORD hasRead = 0;
-    if(_hFile && ReadFile(_hFile,scratch,n,&hasRead,NULL) ){
+    if (_hFile && ReadFile(_hFile, scratch, static_cast<DWORD>(n), &hasRead, NULL)) {
         *result = Slice(scratch,hasRead);
     } else {
         sRet = Status::IOError(_filename, Win32::GetLastErrSz() );
@@ -397,7 +397,7 @@ Status Win32RandomAccessFile::Read(uint64_t offset,size_t n,Slice* result,char* 
     ol.Offset = (DWORD)offset;
     ol.OffsetHigh = (DWORD)(offset >> 32);
     DWORD hasRead = 0;
-    if(!ReadFile(_hFile,scratch,n,&hasRead,&ol))
+    if(!ReadFile(_hFile,scratch, static_cast<DWORD>(n),&hasRead,&ol))
         sRet = Status::IOError(_filename,Win32::GetLastErrSz());
     else
         *result = Slice(scratch,hasRead);
@@ -461,7 +461,7 @@ Win32WritableFile::~Win32WritableFile()
 Status Win32WritableFile::Append(const Slice& data)
 {
     DWORD r = 0;
-    if (!WriteFile(_hFile, data.data(), data.size(), &r, NULL) || r != data.size()) {
+    if (!WriteFile(_hFile, data.data(), static_cast<DWORD>(data.size()), &r, NULL) || r != data.size()) {
         return Status::IOError("Win32WritableFile.Append::WriteFile: "+filename_, Win32::GetLastErrSz());
     }
     return Status::OK();

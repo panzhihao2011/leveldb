@@ -344,6 +344,7 @@ void SkipList<Key,Comparator>::Insert(const Key& key) {
   assert(x == NULL || !Equal(key, x->key));
 
   int height = RandomHeight();
+  size_t height_st = height;
   if (height > GetMaxHeight()) {
     for (int i = GetMaxHeight(); i < height; i++) {
       prev[i] = head_;
@@ -356,8 +357,8 @@ void SkipList<Key,Comparator>::Insert(const Key& key) {
     // new level pointers from head_ (NULL), or a new value set in
     // the loop below.  In the former case the reader will
     // immediately drop to the next level since NULL sorts after all
-    // keys.  In the latter case the reader will use the new node.
-    max_height_.NoBarrier_Store(reinterpret_cast<void*>(height));
+    // keys.  In the latter case the reader will use the new node.	
+    max_height_.NoBarrier_Store(reinterpret_cast<void*>(height_st));
   }
 
   x = NewNode(key, height);
