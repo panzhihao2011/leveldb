@@ -10,7 +10,7 @@ Authors: Sanjay Ghemawat (sanjay@google.com) and Jeff Dean (jeff@google.com)
   * mkdir leveldb-build
   * cd leveldb-build
   * cmake ..\leveldb -G "Visual Studio 15 2017 Win64"
-  * msbuild Leveldb.sln
+  * msbuild Leveldb.sln /p:Configuration=Release /p:Platform=x64
 
 # Features
   * Keys and values are arbitrary byte arrays.
