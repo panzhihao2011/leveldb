@@ -55,6 +55,8 @@
 #include <crc32c/crc32c.h>
 #endif  // defined(HAVE_CRC32C)
 
+
+
 namespace leveldb {
 namespace port {
 
@@ -63,14 +65,30 @@ static const bool kLittleEndian = true;
 
 class CondVar;
 
+class AtomicPointer {
+private:
+	void* rep_;
+public:
+	AtomicPointer();
+	explicit AtomicPointer(void* p);
+	void* NoBarrier_Load() const;
+	void NoBarrier_Store(void* v);
+	void* Acquire_Load() const;
+	void Release_Store(void* v);
+};
+
 class Mutex {
  public:
-  Mutex();
-  ~Mutex();
+	 Mutex();
 
-  void Lock();
-  void Unlock();
-  void AssertHeld();
+	 ~Mutex();
+
+	 void Lock();
+
+	 void Unlock();
+
+	 void AssertHeld();
+
 
  private:
   friend class CondVar;
@@ -91,10 +109,15 @@ class Mutex {
 class CondVar {
  public:
   explicit CondVar(Mutex* mu);
+
   ~CondVar();
+
   void Wait();
+
   void Signal();
+
   void SignalAll();
+
  private:
   Mutex* mu_;
   
@@ -127,23 +150,7 @@ private:
 };
 
 #define LEVELDB_ONCE_INIT false
-extern void InitOnce(port::OnceType*, void (*initializer)());
-
-// Storage for a lock-free pointer
-class AtomicPointer {
- private:
-  void * rep_;
- public:
-  AtomicPointer() : rep_(NULL) { }
-  explicit AtomicPointer(void* v); 
-  void* Acquire_Load() const;
-
-  void Release_Store(void* v);
-
-  void* NoBarrier_Load() const;
-
-  void NoBarrier_Store(void* v);
-};
+void InitOnce(OnceType* once, void(*initializer)());
 
 inline bool Snappy_Compress(const char* input, size_t length,
                             ::std::string* output) {

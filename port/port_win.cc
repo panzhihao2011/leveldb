@@ -29,13 +29,31 @@
 //
 
 #include "port/port_win.h"
-
-#include <windows.h>
 #include <cassert>
 #include <intrin.h>
+#include <Windows.h>
 
 namespace leveldb {
 namespace port {
+
+AtomicPointer::AtomicPointer() { }
+
+AtomicPointer::AtomicPointer(void* p) : rep_(p) {}
+
+void* AtomicPointer::NoBarrier_Load() const { return rep_; }
+
+void AtomicPointer::NoBarrier_Store(void* v) { rep_ = v; }
+
+void* AtomicPointer::Acquire_Load() const {
+	void* result = rep_;
+	MemoryBarrier();
+	return result;
+}
+
+void AtomicPointer::Release_Store(void* v) {
+	MemoryBarrier();
+	rep_ = v;
+}
 
 Mutex::Mutex() :
     cs_(NULL) {
@@ -118,30 +136,8 @@ void CondVar::SignalAll() {
   wait_mtx_.Unlock();
 }
 
-AtomicPointer::AtomicPointer(void* v) {
-  Release_Store(v);
-}
-
 void InitOnce(OnceType* once, void (*initializer)()) {
   once->InitOnce(initializer);
-}
-
-void* AtomicPointer::Acquire_Load() const {
-  void * p = NULL;
-  InterlockedExchangePointer(&p, rep_);
-  return p;
-}
-
-void AtomicPointer::Release_Store(void* v) {
-  InterlockedExchangePointer(&rep_, v);
-}
-
-void* AtomicPointer::NoBarrier_Load() const {
-  return rep_;
-}
-
-void AtomicPointer::NoBarrier_Store(void* v) {
-  rep_ = v;
 }
 
 bool HasAcceleratedCRC32C() {
