@@ -79,25 +79,7 @@ if(BUILD_SHARED_LIBS)
   add_compile_options(-fvisibility=hidden)
 endif(BUILD_SHARED_LIBS)
 
-if (WIN32)
-  add_library(leveldb_port_win OBJECT "")
-  target_sources(leveldb_port_win
-    PRIVATE
-      "${PROJECT_SOURCE_DIR}/port/port_win.cc"
-    PUBLIC
-      # The headers below are dependencies for leveldb, but aren't needed by users
-      # that link to the installed version of leveldb and rely on its public API.
-      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/atomic_pointer.h>
-      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/port_win.h>
-      $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/port/port.h>
-  )
-   add_library(leveldb ""
-    $<TARGET_OBJECTS:leveldb_port_win>
-  )
-endif(WIN32)
-if (UNIX)
-  add_library(leveldb "")
-endif (UNIX)
+add_library(leveldb "")
 
 target_sources(leveldb
   PRIVATE

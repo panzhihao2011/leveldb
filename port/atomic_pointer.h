@@ -22,10 +22,6 @@
 
 #include <atomic>
 
-#ifdef OS_WIN
-#include <windows.h>
-#endif
-
 #if defined(_M_X64) || defined(__x86_64__)
 #define ARCH_CPU_X86_FAMILY 1
 #elif defined(_M_IX86) || defined(__i386__) || defined(__i386)
@@ -48,7 +44,9 @@ namespace port {
 #if defined(OS_WIN) && defined(COMPILER_MSVC) && defined(ARCH_CPU_X86_FAMILY)
 // windows.h already provides a MemoryBarrier(void) macro
 // http://msdn.microsoft.com/en-us/library/ms684208(v=vs.85).aspx
-#define LEVELDB_HAVE_MEMORY_BARRIER
+inline void MemoryBarrier() {
+	std::atomic_thread_fence(std::memory_order_seq_cst);
+}
 
 // Mac OS
 #elif defined(__APPLE__)

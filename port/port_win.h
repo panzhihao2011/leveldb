@@ -55,7 +55,14 @@
 #include <crc32c/crc32c.h>
 #endif  // defined(HAVE_CRC32C)
 
-
+#include <stddef.h>
+#include <stdint.h>
+#include <cassert>
+#include <condition_variable>  // NOLINT
+#include <mutex>               // NOLINT
+#include <string>
+#include "port/atomic_pointer.h"
+#include "port/thread_annotations.h"
 
 namespace leveldb {
 namespace port {
@@ -65,69 +72,43 @@ static const bool kLittleEndian = true;
 
 class CondVar;
 
-class AtomicPointer {
-private:
-	void* rep_;
+// Thinly wraps std::mutex.
+class LOCKABLE Mutex {
 public:
-	AtomicPointer();
-	explicit AtomicPointer(void* p);
-	void* NoBarrier_Load() const;
-	void NoBarrier_Store(void* v);
-	void* Acquire_Load() const;
-	void Release_Store(void* v);
+	Mutex() = default;
+	~Mutex() = default;
+
+	Mutex(const Mutex&) = delete;
+	Mutex& operator=(const Mutex&) = delete;
+
+	void Lock() EXCLUSIVE_LOCK_FUNCTION() { mu_.lock(); }
+	void Unlock() UNLOCK_FUNCTION() { mu_.unlock(); }
+	void AssertHeld() ASSERT_EXCLUSIVE_LOCK() { }
+
+private:
+	friend class CondVar;
+	std::mutex mu_;
 };
 
-class Mutex {
- public:
-	 Mutex();
-
-	 ~Mutex();
-
-	 void Lock();
-
-	 void Unlock();
-
-	 void AssertHeld();
-
-
- private:
-  friend class CondVar;
-  // critical sections are more efficient than mutexes
-  // but they are not recursive and can only be used to synchronize threads within the same process
-  // we use opaque void * to avoid including windows.h in port_win.h
-  void * cs_;
-
-  // No copying
-  Mutex(const Mutex&);
-  void operator=(const Mutex&);
-};
-
-// the Win32 API offers a dependable condition variable mechanism, but only starting with
-// Windows 2008 and Vista
-// no matter what we will implement our own condition variable with a semaphore
-// implementation as described in a paper written by Andrew D. Birrell in 2003
+// Thinly wraps std::condition_variable.
 class CondVar {
- public:
-  explicit CondVar(Mutex* mu);
+public:
+	explicit CondVar(Mutex* mu) : mu_(mu) { assert(mu != nullptr); }
+	~CondVar() = default;
 
-  ~CondVar();
+	CondVar(const CondVar&) = delete;
+	CondVar& operator=(const CondVar&) = delete;
 
-  void Wait();
-
-  void Signal();
-
-  void SignalAll();
-
- private:
-  Mutex* mu_;
-  
-  Mutex wait_mtx_;
-  long waiting_;
-  
-  void * sem1_;
-  void * sem2_;
-  
-  
+	void Wait() {
+		std::unique_lock<std::mutex> lock(mu_->mu_, std::adopt_lock);
+		cv_.wait(lock);
+		lock.release();
+	}
+	void Signal() { cv_.notify_one(); }
+	void SignalAll() { cv_.notify_all(); }
+private:
+	std::condition_variable cv_;
+	Mutex* const mu_;
 };
 
 class OnceType {
@@ -150,7 +131,9 @@ private:
 };
 
 #define LEVELDB_ONCE_INIT false
-void InitOnce(OnceType* once, void(*initializer)());
+inline void InitOnce(OnceType* once, void (*initializer)()) {
+  once->InitOnce(initializer);
+}
 
 inline bool Snappy_Compress(const char* input, size_t length,
                             ::std::string* output) {
@@ -187,8 +170,13 @@ inline bool GetHeapProfile(void (*func)(void*, const char*, int), void* arg) {
   return false;
 }
 
-bool HasAcceleratedCRC32C();
-uint32_t AcceleratedCRC32C(uint32_t crc, const char* buf, size_t size);
+inline uint32_t AcceleratedCRC32C(uint32_t crc, const char* buf, size_t size) {
+#if HAVE_CRC32C
+  return ::crc32c::Extend(crc, reinterpret_cast<const uint8_t*>(buf), size);
+#else
+  return 0;
+#endif  // HAVE_CRC32C
+}
 
 }
 }
